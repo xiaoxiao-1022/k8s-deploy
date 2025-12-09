@@ -1,0 +1,34 @@
+kind: Pod
+apiVersion: v1
+metadata:
+  name: ${NAMESPACE_RAW}-ui
+  namespace: controller
+  labels:
+    app: ${NAMESPACE_RAW}-ui
+spec:
+  nodeSelector:
+    manage-daemon: ""
+  containers:
+  - name: ${NAMESPACE_REPLACE}-ui
+    image: cylonix/sase-ui:v2.0
+    env:
+      - name: VITE_BASE_URL
+        value: ${BASE_URL}/manager/v2
+      - name: VITE_LOGIN_REDIRECT_BASE_URL
+        value: ${BASE_URL}/oauth-success
+      - name: VITE_WS_URL
+        value: ${BASE_URL}/ws/log/v1/alert
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: controller
+  name: ${NAMESPACE_REPLACE}-ui-service
+spec:
+  selector:
+    app: ${NAMESPACE_RAW}-ui
+  ports:
+    - protocol: TCP
+      name: http
+      port: 80
+      targetPort: 8001

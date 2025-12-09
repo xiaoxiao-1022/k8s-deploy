@@ -1,0 +1,45 @@
+kind: Pod
+apiVersion: v1
+metadata:
+  name: postgres
+  namespace: database
+  labels:
+    app: postgres
+spec:
+  nodeSelector:
+    database: ""
+  containers:
+  - name: postgres
+    image: postgres:14.1-alpine
+    volumeMounts:
+      - mountPath: /var/lib/postgresql/data
+        name: postgres-data
+      - mountPath: /docker-entrypoint-initdb.d
+        name: entrypoint
+    env:
+      - name: POSTGRES_USER
+        value: ${PG_USERNAME}
+      - name: POSTGRES_PASSWORD
+        value: ${PG_PASSWORD}
+    ports:
+      - containerPort: 5432
+  volumes:
+    - name: postgres-data
+      hostPath:
+        path: ${DATABASE_VOLUME_PATH}/postgres/data
+    - name: entrypoint
+      hostPath:
+        path: ${DATABASE_VOLUME_PATH}/postgres/entrypoint
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: database
+  name: $POSTGRES_SERVICE_NAME
+spec:
+  selector:
+    app: postgres
+  ports:
+    - protocol: TCP
+      port: 5432
+      targetPort: 5432

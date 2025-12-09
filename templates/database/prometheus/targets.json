@@ -1,0 +1,8 @@
+[
+    {
+      "targets": [ "fw.cylonix:9000" ],
+      "labels": {
+        "job": "manager-statistic-job"
+      }
+    }
+]

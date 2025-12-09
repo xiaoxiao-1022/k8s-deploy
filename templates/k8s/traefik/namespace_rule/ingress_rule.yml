@@ -1,0 +1,58 @@
+
+# --- namespace matches ${NAMESPACE_RAW} ---
+  # routes
+    # default to UI
+    - match: >-
+        Host(`$DOMAIN`) &&
+        (HeaderRegexp(`namespace`, `${NAMESPACE_RAW}`) ||
+        Query(`namespace`, `${NAMESPACE_RAW}`) ||
+        HeaderRegexp(`Cookie`, `"company_name":"${NAMESPACE_RAW}"`))
+      kind: Rule
+      services:
+        - name: ${NAMESPACE_REPLACE}-ui-service
+          namespace: controller
+          port: 80
+          kind: Service
+
+    # manager backend
+    - match: >-
+        Host(`$DOMAIN`) && PathPrefix(`/manager/v2`) &&
+        (HeaderRegexp(`namespace`, `${NAMESPACE_RAW}`) ||
+        Query(`namespace`, `${NAMESPACE_RAW}`) ||
+        HeaderRegexp(`Cookie`, `"company_name":"${NAMESPACE_RAW}"`))
+      kind: Rule
+      services:
+        - name: ${NAMESPACE_REPLACE}-manager-service
+          namespace: controller
+          port: 8080
+          kind: Service
+
+    # headscale
+    - match: >-
+        Host(`$DOMAIN`) && (PathPrefix(`/vpn`) || PathPrefix(`/ts2021`) || PathPrefix(`/key`)) &&
+        (HeaderRegexp(`namespace`, `${NAMESPACE_RAW}`) ||
+        Query(`namespace`, `${NAMESPACE_RAW}`) ||
+        HeaderRegexp(`Cookie`, `"company_name":"${NAMESPACE_RAW}"`))
+      kind: Rule
+      middlewares:
+        - name: strip-vpn-prefix
+          namespace: controller
+      services:
+        - name: ${NAMESPACE_REPLACE}-manager-service
+          namespace: controller
+          port: 8000
+          kind: Service
+
+    # websocket
+    - match: >-
+        Host(`$DOMAIN`) && PathPrefix(`/ws`) &&
+        (HeaderRegexp(`namespace`, `${NAMESPACE_RAW}`) ||
+        Query(`namespace`, `${NAMESPACE_RAW}`) ||
+        HeaderRegexp(`Cookie`, `"company_name":"${NAMESPACE_RAW}"`))
+      kind: Rule
+      services:
+        - name: ${NAMESPACE_REPLACE}-manager-service
+          namespace: controller
+          port: 8070
+          kind: Service
+# --- end of namespace matches ${NAMESPACE_RAW} ---

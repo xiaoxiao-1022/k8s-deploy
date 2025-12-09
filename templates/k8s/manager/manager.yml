@@ -1,0 +1,63 @@
+kind: Pod
+apiVersion: v1
+metadata:
+  name: ${NAMESPACE_RAW}
+  namespace: controller
+  labels:
+    app: ${NAMESPACE_RAW}-manager
+spec:
+  nodeSelector:
+    manage-daemon: ""
+  containers:
+  - name: ${NAMESPACE_REPLACE}
+    image: cylonix/cylonix-manager:alpine-latest
+    command: ["/opt/entrypoint.sh"]
+    args: ["manager", "--log-level", "debug"]
+    envFrom:
+      - configMapRef:
+          name: manage-${NAMESPACE_RAW}-configmap
+    env:
+      - name: HEADSCALE_CONFIG
+        value: /etc/cylonix/headscale_config.yaml
+    volumeMounts:
+      - name: send-email-credentials
+        mountPath: "/etc/secrets/{SEND_EMAIL_PROVIDER}"
+        readOnly: true
+      - name: apple-signin-key
+        mountPath: "/etc/secrets/apple"
+        readOnly: true
+      - name: private-key-file
+        mountPath: "/etc/sase/"
+  volumes:
+    - name: send-email-credentials
+      secret:
+        secretName: send-email-credentials
+    - name: apple-signin-key
+      secret:
+        secretName: apple-signin-key
+    - name: private-key-file
+      hostPath:
+        type: DirectoryOrCreate
+        path: ${MANAGER_DAEMON_CONFIG_PATH}/$NAMESPACE_RAW/etc/sase/  
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: controller
+  name: ${NAMESPACE_REPLACE}-manager-service
+spec:
+  selector:
+    app: ${NAMESPACE_RAW}-manager
+  ports:
+    - protocol: TCP
+      name: vpn
+      port: 8000
+      targetPort: 8000
+    - protocol: TCP
+      name: manager
+      port: 8080
+      targetPort: 8080
+    - protocol: TCP
+      name: websocket
+      port: 8070
+      targetPort: 8070

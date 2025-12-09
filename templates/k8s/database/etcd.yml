@@ -1,0 +1,41 @@
+kind: Pod
+apiVersion: v1
+metadata:
+  name: etcd
+  namespace: database
+  labels:
+    app: etcd
+spec:
+  nodeSelector:
+    database: ""
+  containers:
+  - name: etcd
+    image: bitnami/etcd:3.5.14
+    command: ["etcd"]
+    args: [
+            "--data-dir=/etcd-data",
+            "--listen-client-urls=http://0.0.0.0:2379",
+            "--advertise-client-urls=http://0.0.0.0:2379",
+            "--auto-compaction-retention=10m",
+            "--auto-compaction-mode=periodic"
+          ]
+    volumeMounts:
+      - mountPath: /etcd-data
+        name: etcd-data
+  volumes:
+    - name: etcd-data
+      hostPath:
+        path: ${DATABASE_VOLUME_PATH}/etcd/data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: database
+  name: $ETCD_SERVICE_NAME
+spec:
+  selector:
+    app: etcd
+  ports:
+    - protocol: TCP
+      port: 2379
+      targetPort: 2379

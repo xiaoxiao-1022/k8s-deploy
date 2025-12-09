@@ -1,0 +1,100 @@
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: strip-vpn-prefix
+  namespace: controller
+spec:
+  stripPrefix:
+    prefixes:
+      - "/vpn"
+
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  namespace: controller
+  name: ingressroute-no-tls
+spec:
+  entryPoints:
+    - local
+    - web
+  routes:
+    # default match
+    - match: Host(`$DOMAIN`) && (PathPrefix(`/vpn`) ||PathPrefix(`/ts2021`) || PathPrefix(`/key`))
+      kind: Rule
+      middlewares:
+        - name: strip-vpn-prefix
+          namespace: controller
+      services:
+        - name: ${DEPLOYMENT}-manager-service
+          namespace: controller
+          port: 8000
+          kind: Service
+    - match: Host(`$DOMAIN`) && PathPrefix(`/ws`)
+      kind: Rule
+      services:
+        - name: ${DEPLOYMENT}-manager-service
+          namespace: controller
+          port: 8070
+          kind: Service
+    - match: Host(`$DOMAIN`) && PathPrefix(`/manager/v2`)
+      kind: Rule
+      services:
+        - name: ${DEPLOYMENT}-manager-service
+          namespace: controller
+          port: 8080
+          kind: Service
+    - match: Host(`$DOMAIN`)
+      kind: Rule
+      services:
+        - name: ${DEPLOYMENT}-ui-service
+          namespace: controller
+          port: 80
+          kind: Service
+
+---
+
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  namespace: controller
+  name: ingressroute
+
+spec:
+  entryPoints:
+    - websecure
+  tls:
+    certResolver: myresolver
+  routes:
+    # default match
+    - match: Host(`$DOMAIN`) && (PathPrefix(`/vpn`) || PathPrefix(`/ts2021`) || PathPrefix(`/key`))
+      kind: Rule
+      middlewares:
+        - name: strip-vpn-prefix
+          namespace: controller
+      services:
+        - name: ${DEPLOYMENT}-manager-service
+          namespace: controller
+          port: 8000
+          kind: Service
+    - match: Host(`$DOMAIN`) && PathPrefix(`/ws`)
+      kind: Rule
+      services:
+        - name: ${DEPLOYMENT}-manager-service
+          namespace: controller
+          port: 8070
+          kind: Service
+    - match: Host(`$DOMAIN`) && PathPrefix(`/manager/v2`)
+      kind: Rule
+      services:
+        - name: ${DEPLOYMENT}-manager-service
+          namespace: controller
+          port: 8080
+          kind: Service
+    - match: Host(`$DOMAIN`)
+      kind: Rule
+      services:
+        - name: ${DEPLOYMENT}-ui-service
+          namespace: controller
+          port: 80
+          kind: Service

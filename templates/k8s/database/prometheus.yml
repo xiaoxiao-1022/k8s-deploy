@@ -1,0 +1,39 @@
+kind: Pod
+apiVersion: v1
+metadata:
+  name: prometheus
+  namespace: database
+  labels:
+    app: prometheus
+spec:
+  nodeSelector:
+    database: ""
+  containers:
+  - name: prometheus
+    image: prom/prometheus:v2.27.1
+    volumeMounts:
+      - mountPath: /etc/prometheus
+        name: prometheus-config
+      - mountPath: /prometheus
+        name: prometheus-data
+    args: ["--config.file=/etc/prometheus/prometheus.yml","--storage.tsdb.path=/prometheus"]
+  volumes:
+    - name: prometheus-data
+      hostPath:
+        path: ${DATABASE_VOLUME_PATH}/prometheus/data
+    - name: prometheus-config
+      hostPath:
+        path: ${DATABASE_CONFIG_PATH}/prometheus
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: database
+  name: $PROMETHEUS_SERVICE_NAME
+spec:
+  selector:
+    app: prometheus
+  ports:
+    - protocol: TCP
+      port: 9090
+      targetPort: 9090

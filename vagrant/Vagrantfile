@@ -1,0 +1,102 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+# Specify minimum Vagrant version and Vagrant API version
+Vagrant.require_version '>= 2.0.0'
+VAGRANTFILE_API_VERSION = '2'
+
+# Require JSON module
+require 'json'
+
+CONFIG_FILE = '../gen/vagrant/nodes.json'
+begin
+  json_config = JSON.parse(File.read(File.join(File.dirname(__FILE__), CONFIG_FILE)))
+  servers = json_config["servers"]
+rescue
+  print "====================================================================\n"
+  print " Faied to open ", CONFIG_FILE, "\n"
+  print " Please generate the config file first:\n"
+  print "    cd ..; make generate\n"
+  print "====================================================================\n"
+  exit
+end
+
+# Create boxes
+user = json_config["user"] || "vagrant"
+home = "/home/%s" % [user]
+grepAddr = 'grep -o -E 192.168.\([0-9\.]+\) | grep -m1 \"\"'
+getAddr = 'ip addr show eth0 | grep -o -E 192.168.\([0-9\.]+\) | grep -m1 ""'
+Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
+  servers.each do |server|
+    config.vm.define server['name'] do |srv|
+      hostname = "%s.%s" % [server['name'], json_config['root-domain']]
+      srv.vm.box = json_config['box']
+      srv.vm.hostname = hostname
+      srv.vm.box_check_update = false
+
+      srv.vm.provider :libvirt do |libvirt|
+        libvirt.driver = "kvm"
+        libvirt.cpus = server['vcpu']
+        libvirt.memory = server['ram']
+        libvirt.management_network_name = 'vagrant-libvirt'
+      end # srv.vm.provider
+
+      # SSH key.
+      srv.vm.provision "file",  source: "~/.ssh/id_rsa.pub", destination: "%s/.ssh/id_rsa_host.pub" % [home]
+      srv.vm.provision "shell", inline: "cat %s/.ssh/id_rsa_host.pub >> %s/.ssh/authorized_keys" % [home, home]
+      srv.vm.provision "shell", inline: "chown %s:%s %s/.ssh/authorized_keys" % [user, user, home]
+      srv.vm.provision "shell", inline: "ip link set eth0 mtu 1280"
+      srv.vm.provision "shell", inline: "groupadd -f docker; usermod -aG docker %s" % [user], reset: true
+
+      # Docker containers. Public containers will be pulled by k8s.
+      # Pre-load the local ones. Always load current local images to guest vm.
+      if server["dockers-local"] && server["dockers-local"].length > 0 then
+        srv.trigger.before :up do |trigger|
+          trigger.info = "Save docker images to be uploaded to guest" % [hostname]
+          trigger.run = {
+            inline: "sh -c '
+              for var in %s
+              do docker save $var > /tmp/%s.docker.$( echo $var | tr \/ _ ).tar
+              done
+              '" % [server["dockers-local"].join(' '), hostname]
+          }
+        end
+      end
+
+      # K8s deployment setup.
+      srv.vm.provision "file",  source: "../gen/k8s.tar", destination: "/tmp/"
+      srv.vm.provision "shell", inline: "cd %s; tar -xvf /tmp/k8s.tar" % [home]
+      srv.vm.provision "shell", privileged: false, inline: "cd %s/gen/common/bash/; bash set_env.sh" % [home]
+
+      # Load docker files
+      if server["dockers-local"] && server["dockers-local"].length > 0 then
+        server["dockers-local"].each do |img|
+          file = "/tmp/%s.docker.%s.tar" % [hostname, img.gsub(/\//, '_')]
+          srv.vm.provision "shell", run: "always", inline: "echo Check if %s exists." % [file]
+          if File.exist?(file) then
+            srv.vm.provision "shell", run: "always", inline: "echo Uploading %s ..." % [file]
+            srv.vm.provision "file",  run: "always", source: file, destination: file
+            srv.vm.provision "shell", run: "always", privileged: false, inline: "docker load -i %s" % [file]
+          end
+        end
+      end
+
+      # Start deployment.
+      srv.vm.provision "shell", privileged: false, inline: "cd %s/gen/database/bash; bash deploy.sh" % [home]
+      srv.vm.provision "shell", privileged: false, inline: "cd %s/gen/k8s/bash; bash start.sh -s -r -a `%s`" % [home, getAddr]
+
+      srv.trigger.after :up do |trigger|
+        trigger.info = "Add hostname %s entry to host's /etc/hosts" % [hostname]
+        trigger.run = {
+          inline: 'sudo sh -c "
+            addr=`vagrant ssh-config %s | %s`
+            sed -i /%s/d /etc/hosts
+            sed -i /$addr/d /etc/hosts
+            echo $addr %s >> /etc/hosts
+            echo Added DNS entry \\\'$addr %s\\\' to /etc/hosts
+          "' % [server['name'], grepAddr, hostname, hostname, hostname]
+        }
+      end
+    end # config.vm.define
+  end # servers.each
+end # Vagrant.configure

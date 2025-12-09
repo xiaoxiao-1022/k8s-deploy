@@ -1,0 +1,33 @@
+kind: Pod
+apiVersion: v1
+metadata:
+  name: influxdb
+  namespace: database
+  labels:
+    app: influxdb
+spec:
+  nodeSelector:
+    database: ""
+  containers:
+  - name: influxdb
+    image: influxdb:2.5.0
+    volumeMounts:
+      - mountPath: /var/lib/influxdb2
+        name: influxdb-data
+  volumes:
+    - name: influxdb-data
+      hostPath:
+        path: ${DATABASE_VOLUME_PATH}/influxdb/data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: database
+  name: $INFLUXDB_SERVICE_NAME
+spec:
+  selector:
+    app: influxdb
+  ports:
+    - protocol: TCP
+      port: 8086
+      targetPort: 8086

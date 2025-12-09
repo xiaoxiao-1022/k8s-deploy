@@ -1,0 +1,39 @@
+kind: Pod
+apiVersion: v1
+metadata:
+  name: supervisor
+  namespace: controller
+  labels:
+    app: supervisor
+spec:
+  nodeSelector:
+    manage-daemon: ""
+  containers:
+  - name: supervisor
+    image: cylonix/cylonix-supervisor:alpine-latest
+    command: ["/opt/entrypoint.sh"]
+    args: ["/supervisor", "start","api_service", "--api=0.0.0.0:8989",
+        "--etcd-addr=${ETCD_SERVICE_NAME}.${DATABASE_NAMESPACE}:2379", 
+        "--config", "/etc/sase/initial-instance.yaml", 
+        "--oidc-config" ,"/etc/sase/oidc-config.json", 
+        "--underlay-config", "/etc/sase/underlay-config.json", 
+        "--admin-config", "/etc/sase/admin.yaml", 
+        "--ipdrawer-addr","http://${IPDRAWER_SERVICE_NAME}.${DATABASE_NAMESPACE}:${IPDRAWER_PORT}",
+        "--loglevel","info"]
+    envFrom:
+      - configMapRef:
+          name: supervisor-configmap
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: controller
+  name: supervisor-service
+spec:
+  selector:
+    app: supervisor
+  ports:
+    - protocol: TCP
+      name: abc
+      port: 8989
+      targetPort: 8989

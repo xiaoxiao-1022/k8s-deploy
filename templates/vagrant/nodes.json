@@ -1,0 +1,17 @@
+{
+    "box": "${NODE_BOX}",
+    "root-domain":"${ROOT_DOMAIN}",
+    "servers":[
+        {
+            "name": "${CONTROLLER}-test",
+            "ram": 4096,
+            "vcpu": 4,
+            "disk_size": "10G",
+            "dockers-local": [
+                "cylonix/cylonix-manager:alpine-latest",
+                "cylonix/cylonox-manager-ui:v2.0",
+                "cylonix/cilium:v1.15.4"
+            ]
+         }
+    ]
+}

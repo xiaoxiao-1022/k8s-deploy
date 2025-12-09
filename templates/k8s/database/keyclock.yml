@@ -1,0 +1,61 @@
+kind: Pod
+apiVersion: v1
+metadata:
+  name: keycloak
+  namespace: database
+  labels:
+    app: keycloak
+spec:
+  nodeSelector:
+    database:  ""
+  containers:
+  - name: keycloak
+    image: quay.io/keycloak/keycloak:25.0.2
+    command: ["/opt/keycloak/bin/kc.sh"]
+    args: ["start","--log-level=DEBUG","--tls-hostname-verifier=ANY","--hostname-strict=false","--http-enabled=true"]
+    volumeMounts:
+      - mountPath: /etc/x509/https/tls.crt
+        name: certificate-file
+      - mountPath: /etc/x509/https/tls.key
+        name: certificate-key-file
+    env:
+      - name: KC_DB
+        value: postgres
+      - name: KC_DB_URL
+        value: jdbc:postgresql://${POSTGRES_SERVICE_NAME}/keycloak
+      - name: KC_DB_DATABASE
+        value: keycloak
+      - name: KC_DB_USERNAME
+        value: $PG_USERNAME
+      - name: KC_DB_PASSWORD
+        value: $PG_PASSWORD
+      - name: KEYCLOAK_ADMIN_PASSWORD
+        value: $KEYCLOAK_PASSWORD
+      - name: KEYCLOAK_ADMIN
+        value: $KEYCLOAK_USERNAME
+      # - name: KC_HTTPS_CERTIFICATE_KEY_FILE
+      #   value: /etc/x509/https/tls.key
+      # - name: KC_HTTPS_CERTIFICATE_FILE
+      #   value: /etc/x509/https/tls.crt
+  volumes:
+    - name: certificate-file
+      hostPath:
+        path: ${DATABASE_CONFIG_PATH}/keycloak/certs/db.sase.pem
+    - name: certificate-key-file
+      hostPath:
+        path: ${DATABASE_CONFIG_PATH}/keycloak/certs/db.sase.key
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: database
+  name: $KEYCLOAK_SERVICE_NAME
+spec:
+  selector:
+    app: keycloak
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+      #nodePort: 30080
+  #type: NodePort

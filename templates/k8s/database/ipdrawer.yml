@@ -1,0 +1,29 @@
+kind: Pod
+apiVersion: v1
+metadata:
+  name: ipdrawer
+  namespace: database
+  labels:
+    app: ipdrawer
+spec:
+  nodeSelector:
+    database: ""
+  containers:
+  - name: ipdrawer
+    image: cylonix/ipdrawer:latest
+    imagePullPolicy: Never
+    args: ["start","--redis-host","redis-service"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: database
+  name: $IPDRAWER_SERVICE_NAME
+spec:
+  selector:
+    app: ipdrawer
+  ports:
+    - protocol: TCP
+      port: 25577
+      targetPort: 25577
+
