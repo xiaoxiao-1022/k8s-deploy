@@ -10,7 +10,9 @@ bash deploy.sh
 cd ../..
 
 cd k8s/bash
-bash start.sh -s -r
+# 自动获取主机的主 IP 地址
+HOST_IP=$(hostname -I | awk '{print $1}')
+bash start.sh -s -r -a $HOST_IP
 cd ../..
 
 echo "Single node deployment completed. You can now access the Cylonix controller."
