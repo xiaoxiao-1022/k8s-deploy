@@ -53,6 +53,9 @@ localAPIEndpoint:
   bindPort: 6443
 EOF
 
+# Set secure permissions on the config file
+chmod 600 /tmp/kubeadm.yaml
+
 # Pre-pull images using the config file
 echo "Pre-pulling Kubernetes images..."
 sudo kubeadm config images pull --config /tmp/kubeadm.yaml

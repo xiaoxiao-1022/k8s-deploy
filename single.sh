@@ -22,7 +22,7 @@ if [ -z "$HOST_IP" ]; then
 fi
 
 # 修复主机名解析问题
-echo "$(hostname -I | awk '{print $1}') $(hostname)" | sudo tee -a /etc/hosts 2>/dev/null || true
+echo "$HOST_IP $(hostname)" | sudo tee -a /etc/hosts 2>/dev/null || true
 
 bash start.sh -s -r -a "$HOST_IP"
 cd ../..
