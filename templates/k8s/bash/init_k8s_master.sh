@@ -34,11 +34,35 @@ single=$2
 echo "API server advertise address is $addr"
 
 sudo kubeadm reset -f
-sudo kubeadm init --image-repository $K8S_IMAGES_REPOSITORY \
-    --kubernetes-version=v1.23.0 \
-    --service-cidr=$K8S_SERVICE_CIDR \
-    --pod-network-cidr=$K8S_POD_NETWORK_CIDR \
-    --apiserver-advertise-address=$addr
+
+# Create kubeadm config file
+cat > /tmp/kubeadm.yaml <<EOF
+apiVersion: kubeadm.k8s.io/v1beta3
+kind: ClusterConfiguration
+kubernetesVersion: v1.23.0
+imageRepository: $K8S_IMAGES_REPOSITORY
+networking:
+  serviceSubnet: $K8S_SERVICE_CIDR
+  podSubnet: $K8S_POD_NETWORK_CIDR
+controlPlaneEndpoint: "$addr:6443"
+---
+apiVersion: kubeadm.k8s.io/v1beta3
+kind: InitConfiguration
+localAPIEndpoint:
+  advertiseAddress: $addr
+  bindPort: 6443
+EOF
+
+# Set secure permissions on the config file
+chmod 600 /tmp/kubeadm.yaml
+
+# Pre-pull images using the config file
+echo "Pre-pulling Kubernetes images..."
+sudo kubeadm config images pull --config /tmp/kubeadm.yaml
+
+# Initialize cluster with the same config
+echo "Initializing Kubernetes cluster..."
+sudo kubeadm init --config /tmp/kubeadm.yaml
 
 mkdir -p $HOME/.kube
 sudo cp -f /etc/kubernetes/admin.conf $HOME/.kube/config
