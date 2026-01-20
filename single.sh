@@ -16,7 +16,7 @@ if [ -z "$HOST_IP" ]; then
     echo "Error: Could not detect host IP address" >&2
     exit 1
 fi
-bash start.sh -s -r -a $HOST_IP
+bash start.sh -s -r -a "$HOST_IP"
 cd ../..
 
 echo "Single node deployment completed. You can now access the Cylonix controller."
