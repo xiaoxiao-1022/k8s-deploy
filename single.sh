@@ -12,6 +12,10 @@ cd ../..
 cd k8s/bash
 # 自动获取主机的主 IP 地址
 HOST_IP=$(hostname -I | awk '{print $1}')
+if [ -z "$HOST_IP" ]; then
+    echo "Error: Could not detect host IP address" >&2
+    exit 1
+fi
 bash start.sh -s -r -a $HOST_IP
 cd ../..
 
